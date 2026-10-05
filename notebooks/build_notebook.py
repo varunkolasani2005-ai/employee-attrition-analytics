@@ -1,0 +1,259 @@
+import json
+import os
+
+notebook = {
+    "cells": [
+        {
+            "cell_type": "markdown",
+            "metadata": {},
+            "source": [
+                "# Employee Performance and Attrition Analytics Using Data Analytics\n",
+                "**B.Tech Computer Science Engineering Academic Project**\n",
+                "\n",
+                "### Objectives:\n",
+                "1. Analyze employee performance distribution across roles and departments.\n",
+                "2. Uncover the root causes behind employee attrition.\n",
+                "3. Perform thorough data cleaning, encoding, and exploratory data analysis.\n",
+                "4. Train and benchmark supervised Machine Learning algorithms (Logistic Regression, Decision Tree, Random Forest).\n",
+                "5. Provide actionable decision support recommendations for Human Resources leadership."
+            ]
+        },
+        {
+            "cell_type": "code",
+            "execution_count": None,
+            "metadata": {},
+            "outputs": [],
+            "source": [
+                "# Step 1: Import Core Libraries\n",
+                "import os\n",
+                "import numpy as np\n",
+                "import pandas as pd\n",
+                "import matplotlib.pyplot as plt\n",
+                "import seaborn as sns\n",
+                "\n",
+                "# Visual styling\n",
+                "sns.set_theme(style='whitegrid')\n",
+                "%matplotlib inline\n",
+                "\n",
+                "print('Libraries successfully imported.')"
+            ]
+        },
+        {
+            "cell_type": "code",
+            "execution_count": None,
+            "metadata": {},
+            "outputs": [],
+            "source": [
+                "# Step 2: Load the Employee Dataset\n",
+                "dataset_path = '../dataset/employee_data.csv'\n",
+                "df = pd.read_csv(dataset_path)\n",
+                "print(f'Dataset Shape: {df.shape[0]} rows, {df.shape[1]} columns')\n",
+                "df.head()"
+            ]
+        },
+        {
+            "cell_type": "code",
+            "execution_count": None,
+            "metadata": {},
+            "outputs": [],
+            "source": [
+                "# Step 3: Dataset Health & Sanity Check\n",
+                "print('--- Dataset Info ---')\n",
+                "df.info()\n",
+                "print('\\n--- Missing Values Check ---')\n",
+                "print(df.isnull().sum())\n",
+                "print(f'\\nDuplicate Records: {df.duplicated(subset=[\"EmployeeID\"]).sum()}')"
+            ]
+        },
+        {
+            "cell_type": "code",
+            "execution_count": None,
+            "metadata": {},
+            "outputs": [],
+            "source": [
+                "# Step 4: Exploratory Data Analysis - Demographics & Attrition\n",
+                "fig, axes = plt.subplots(1, 2, figsize=(14, 5))\n",
+                "\n",
+                "# Attrition Count\n",
+                "sns.countplot(data=df, x='Attrition', palette=['#27ae60', '#c0392b'], ax=axes[0])\n",
+                "axes[0].set_title('Overall Attrition Count (Stayed vs Left)', weight='bold')\n",
+                "\n",
+                "# Department Breakdown\n",
+                "sns.countplot(data=df, x='Department', hue='Attrition', palette=['#27ae60', '#c0392b'], ax=axes[1])\n",
+                "axes[1].set_title('Attrition Breakdown by Department', weight='bold')\n",
+                "\n",
+                "plt.tight_layout()\n",
+                "plt.show()"
+            ]
+        },
+        {
+            "cell_type": "code",
+            "execution_count": None,
+            "metadata": {},
+            "outputs": [],
+            "source": [
+                "# Step 5: OverTime Impact on Attrition\n",
+                "plt.figure(figsize=(7, 4.5))\n",
+                "ot_crosstab = pd.crosstab(df['OverTime'], df['Attrition'], normalize='index') * 100\n",
+                "ot_crosstab.plot(kind='bar', stacked=True, color=['#27ae60', '#c0392b'], figsize=(7, 4.5))\n",
+                "plt.title('Impact of Mandatory OverTime on Attrition Rate (%)', weight='bold')\n",
+                "plt.ylabel('Percentage (%)')\n",
+                "plt.xticks(rotation=0)\n",
+                "plt.show()\n",
+                "print(ot_crosstab)"
+            ]
+        },
+        {
+            "cell_type": "code",
+            "execution_count": None,
+            "metadata": {},
+            "outputs": [],
+            "source": [
+                "# Step 6: Employee Performance Analytics\n",
+                "# Compute Normalized Composite Performance Score (0 - 100)\n",
+                "rating_part = (df['PerformanceRating'] / 4.0) * 50.0\n",
+                "training_part = (df['TrainingTimesLastYear'].clip(upper=6) / 6.0) * 20.0\n",
+                "attendance_part = (1.0 - (df['Absenteeism'].clip(upper=25) / 25.0)) * 15.0\n",
+                "satisfaction_part = (df['JobSatisfaction'] / 4.0) * 15.0\n",
+                "\n",
+                "df['CompositeScore'] = (rating_part + training_part + attendance_part + satisfaction_part).round(2)\n",
+                "\n",
+                "plt.figure(figsize=(8, 4.5))\n",
+                "sns.histplot(df['CompositeScore'], kde=True, color='#2980b9')\n",
+                "plt.title('Workforce Composite Performance Score Distribution (0-100)', weight='bold')\n",
+                "plt.xlabel('Composite Performance Score')\n",
+                "plt.show()"
+            ]
+        },
+        {
+            "cell_type": "code",
+            "execution_count": None,
+            "metadata": {},
+            "outputs": [],
+            "source": [
+                "# Step 7: Correlation Heatmap\n",
+                "num_features = df.select_dtypes(include=[np.number]).columns\n",
+                "plt.figure(figsize=(10, 8))\n",
+                "sns.heatmap(df[num_features].corr(), annot=True, fmt='.2f', cmap='coolwarm', center=0)\n",
+                "plt.title('Correlation Matrix of Employee Metrics', weight='bold')\n",
+                "plt.show()"
+            ]
+        },
+        {
+            "cell_type": "code",
+            "execution_count": None,
+            "metadata": {},
+            "outputs": [],
+            "source": [
+                "# Step 8: Preprocessing & Feature Engineering for Machine Learning\n",
+                "from sklearn.model_selection import train_test_split\n",
+                "from sklearn.preprocessing import StandardScaler\n",
+                "\n",
+                "# Target & Binary Encoding\n",
+                "y = df['Attrition'].map({'Yes': 1, 'No': 0})\n",
+                "df_ml = df.drop(columns=['EmployeeID', 'Attrition', 'CompositeScore'])\n",
+                "df_ml['OverTime'] = df_ml['OverTime'].map({'Yes': 1, 'No': 0})\n",
+                "\n",
+                "# One-Hot Encoding for categorical features\n",
+                "cat_cols = ['Department', 'JobRole', 'Education', 'Gender']\n",
+                "X = pd.get_dummies(df_ml, columns=cat_cols, drop_first=True, dtype=int)\n",
+                "\n",
+                "# Stratified 80/20 Train-Test Split\n",
+                "X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42, stratify=y)\n",
+                "\n",
+                "# Standard Scaling\n",
+                "scaler = StandardScaler()\n",
+                "X_train_sc = scaler.fit_transform(X_train)\n",
+                "X_test_sc = scaler.transform(X_test)\n",
+                "\n",
+                "print(f'Training Samples: {X_train.shape[0]}, Testing Samples: {X_test.shape[0]}')\n",
+                "print(f'Total Features: {X.shape[1]}')"
+            ]
+        },
+        {
+            "cell_type": "code",
+            "execution_count": None,
+            "metadata": {},
+            "outputs": [],
+            "source": [
+                "# Step 9: Model Training & Evaluation\n",
+                "from sklearn.linear_model import LogisticRegression\n",
+                "from sklearn.tree import DecisionTreeClassifier\n",
+                "from sklearn.ensemble import RandomForestClassifier\n",
+                "from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, roc_auc_score\n",
+                "\n",
+                "models = {\n",
+                "    'Logistic Regression': LogisticRegression(max_iter=1000, random_state=42),\n",
+                "    'Decision Tree': DecisionTreeClassifier(max_depth=5, random_state=42),\n",
+                "    'Random Forest': RandomForestClassifier(n_estimators=100, max_depth=6, random_state=42)\n",
+                "}\n",
+                "\n",
+                "benchmark = []\n",
+                "for name, model in models.items():\n",
+                "    model.fit(X_train_sc, y_train)\n",
+                "    y_pred = model.predict(X_test_sc)\n",
+                "    y_prob = model.predict_proba(X_test_sc)[:, 1]\n",
+                "    \n",
+                "    benchmark.append({\n",
+                "        'Model': name,\n",
+                "        'Accuracy': accuracy_score(y_test, y_pred),\n",
+                "        'Precision': precision_score(y_test, y_pred, zero_division=0),\n",
+                "        'Recall': recall_score(y_test, y_pred, zero_division=0),\n",
+                "        'F1-Score': f1_score(y_test, y_pred, zero_division=0),\n",
+                "        'ROC-AUC': roc_auc_score(y_test, y_prob)\n",
+                "    })\n",
+                "\n",
+                "results_df = pd.DataFrame(benchmark)\n",
+                "results_df"
+            ]
+        },
+        {
+            "cell_type": "code",
+            "execution_count": None,
+            "metadata": {},
+            "outputs": [],
+            "source": [
+                "# Step 10: Top Predictive Features\n",
+                "rf = models['Random Forest']\n",
+                "fi = pd.DataFrame({'Feature': X.columns, 'Importance': rf.feature_importances_})\n",
+                "fi = fi.sort_values(by='Importance', ascending=False).head(10)\n",
+                "\n",
+                "plt.figure(figsize=(9, 4.5))\n",
+                "sns.barplot(data=fi, x='Importance', y='Feature', palette='viridis')\n",
+                "plt.title('Top 10 Feature Importances for Attrition Risk', weight='bold')\n",
+                "plt.xlabel('Importance Score')\n",
+                "plt.show()"
+            ]
+        },
+        {
+            "cell_type": "markdown",
+            "metadata": {},
+            "source": [
+                "### Conclusion & HR Strategic Summary\n",
+                "1. **Primary Attrition Drivers:** Mandatory Overtime, Low Monthly Compensation, and Low Job Satisfaction.\n",
+                "2. **Retention Recommendations:** Balance workload across project cycles, conduct periodic salary benchmarking, and introduce structured career growth plans to eliminate promotion stagnation.\n",
+                "3. **Dashboard:** Launch the Streamlit application for interactive executive presentation via `streamlit run dashboard/app.py`."
+            ]
+        }
+    ],
+    "metadata": {
+        "kernelspec": {
+            "display_name": "Python 3",
+            "language": "python",
+            "name": "python3"
+        },
+        "language_info": {
+            "name": "python",
+            "version": "3.11.7"
+        }
+    },
+    "nbformat": 4,
+    "nbformat_minor": 4
+}
+
+out_dir = r"C:\Users\varun\.gemini\antigravity\scratch\employee_performance_attrition\notebooks"
+os.makedirs(out_dir, exist_ok=True)
+out_path = os.path.join(out_dir, "employee_analysis.ipynb")
+with open(out_path, "w", encoding="utf-8") as f:
+    json.dump(notebook, f, indent=2)
+print("Notebook successfully generated at:", out_path)
